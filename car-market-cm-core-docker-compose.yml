@@ -1,0 +1,85 @@
+version: '2.4'
+services:
+  web:
+    image: nfqlt/nginx118
+    ports:
+      - '10.24.97.65:80:80'
+    links:
+      - fastcgi
+    volumes:
+      - './src:/home/project/src'
+      - './conf.d/nginx.conf:/etc/nginx/sites-enabled/default:ro'
+    environment:
+      NFQ_DOCUMENT_ROOT: /home/project/src
+      NFQ_PROJECT_ROOT: /home/project/src
+
+
+  dev:
+    image: nfqlt/php74-dev
+    ports:
+      - '10.24.97.65:22:22'
+    links:
+      - rabbitmq
+      - redis
+      - elasticsearch
+    volumes:
+      - './src:/home/project/src'
+      - '/home/project/.ssh:/home/project/.ssh'
+      - '/etc/ssh:/etc/ssh'
+      - '/etc/gitconfig:/etc/gitconfig'
+      - '/etc/environment:/etc/environment-vm:ro'
+      - '../../tools/env-projects:/etc/environment-projects'
+      - '/vagrant/bash_custom:/home/project/.bash_custom'
+    environment:
+      NFQ_ENABLE_PHP_MODULES: 'bcmath opcache gd mysqlnd pdo pdo_mysql exif intl zip sockets json ctype iconv tokenizer mbstring xml dom simplexml xmlwriter curl amqp redis igbinary'
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_PROJECT_GIT_REPO: 'git@gitlab.com:nfq-technologies/delta/atlantic-express-car-market/cm-core.git'
+      NFQ_PROJECT_GIT_BRANCH: develop
+      NFQ_INIT_SCRIPT: tools/docker/develop_init.sh
+
+
+  fastcgi:
+    image: nfqlt/php74-fpm
+    links:
+      - rabbitmq
+      - redis
+      - elasticsearch
+    volumes:
+      - './src:/home/project/src'
+      - './conf.d/custom_php_dev_fpm.ini:/etc/php/7.4/fpm/conf.d/90-custom.ini:ro'
+    environment:
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_ENABLE_PHP_MODULES: 'bcmath opcache gd mysqlnd pdo pdo_mysql exif intl zip sockets json ctype iconv tokenizer mbstring xml dom simplexml xmlwriter curl amqp redis igbinary'
+
+
+  rabbitmq:
+    image: nfqlt/rabbitmq38
+    ports:
+      - '10.24.97.65:5672:5672'
+      - '10.24.97.65:15672:15672'
+    environment:
+      NFQ_ENABLE_RABBITMQ_MODULES: rabbitmq_management
+
+
+  elasticsearch:
+    image: nfqlt/elasticsearch77
+    ports:
+      - '10.24.97.65:9200:9200'
+    environment:
+      ES_JAVA_OPTS: '-Xmx256m -Xms256m'
+      ELASTIC_PASSWORD: 'Eqs!GR&=GcES(7mB'
+
+
+  redis:
+    image: nfqlt/redis503
+    ports:
+      - '10.24.97.65:6379:6379'
+
+
+volumes: {  }
+networks:
+  default:
+    ipam:
+      config:
+        -
+          subnet: 10.24.97.65/28

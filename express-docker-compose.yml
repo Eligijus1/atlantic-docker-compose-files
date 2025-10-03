@@ -1,0 +1,181 @@
+version: '2.4'
+services:
+  sonar:
+    image: nfqlt/sonar-scanner-cli4
+    volumes_from:
+      - 'service:node:rw'
+
+
+  web:
+    image: nfqlt/apache24
+    ports:
+      - '10.24.97.193:80:80'
+    links:
+      - fastcgi
+      - smartclient
+    volumes:
+      - './src:/home/project/src'
+      - './conf.d/virtualhost.conf:/etc/apache2/sites-enabled/virtualhost.conf:ro'
+    volumes_from:
+      - 'service:smartclient:rw'
+    environment:
+      APACHE_DOCUMENTROOT: /home/project/src/www/web
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_FCGI_IDLE_TIMEOUT: 300
+
+
+  fastcgi:
+    image: nfqlt/php83-fpm
+    links:
+      - mysql
+      - birt
+      - pdftk
+    volumes:
+      - './src:/home/project/src'
+      - './conf.d/custom_php_dev_fpm.ini:/etc/php/8.3/fpm/conf.d/90-custom.ini:ro'
+    volumes_from:
+      - 'service:node:rw'
+    environment:
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_ENABLE_PHP_MODULES: 'mysqlnd pdo pdo_mysql pdo_sqlite curl json intl mbstring gd xml zip ctype exif pdo_sqlite ftp tokenizer dom simplexml apcu xmlwriter fileinfo bcmath iconv posix xmlreader soap imap ssh2 imagick'
+      NFQ_REMOTE_TOOL_PDFTK: >
+        /usr/bin/pdftk
+      NFQ_REMOTE_TOOL_WKHTMLTOPDF: >
+        /usr/bin/xvfb-run
+        /usr/bin/wkhtmltopdf
+      NFQ_REMOTE_TOOL_GHOSTSCRIPT: >
+        /usr/bin/gs
+
+
+  smartclient:
+    image: nfqlt/lib-smartclient100
+    volumes:
+      - /home/project/lib/smartclient
+
+
+  mysql:
+    image: nfqlt/mysql80
+    ports:
+      - '10.24.97.193:3306:3306'
+    volumes_from:
+      - 'service:mysqlVol:rw'
+    volumes:
+      - './conf.d/mysql.cnf:/etc/mysql/conf.d/mysql.cnf:ro'
+
+
+  mysqlVol:
+    image: nfqlt/mysql80-data
+    volumes:
+      - /var/lib/mysql
+
+
+  dev:
+    image: nfqlt/php83-dev
+    ports:
+      - '10.24.97.193:22:22'
+    links:
+      - mysql
+      - birt
+      - pdftk
+      - sonar
+    volumes_from:
+      - 'service:node:rw'
+      - 'service:smartclient:rw'
+    volumes:
+      - './src:/home/project/src'
+      - '/home/project/.ssh:/home/project/.ssh'
+      - '/etc/ssh:/etc/ssh'
+      - '/etc/gitconfig:/etc/gitconfig'
+      - '/etc/environment:/etc/environment-vm:ro'
+      - '../../tools/env-projects:/etc/environment-projects'
+      - '/vagrant/bash_custom:/home/project/.bash_custom'
+      - './conf.d/custom_php_dev_cli.ini:/etc/php/8.3/cli/conf.d/90-custom.ini:ro'
+    environment:
+      NFQ_ENABLE_PHP_MODULES: 'mysqlnd pdo pdo_mysql pdo_sqlite curl json intl mbstring gd xml zip ctype exif pdo_sqlite ftp tokenizer dom simplexml apcu xmlwriter fileinfo bcmath iconv posix xmlreader soap imap ssh2 imagick'
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_PROJECT_GIT_REPO: 'git@gitlab.com:nfq-technologies/delta/atlantic-express/express.git'
+      NFQ_PROJECT_GIT_BRANCH: develop
+      NFQ_INIT_SCRIPT: tools/docker/develop_init.sh
+      NFQ_REMOTE_TOOL_NODE: >
+        /usr/bin/npm
+        /usr/bin/node
+        /usr/bin/yarn
+      NFQ_REMOTE_TOOL_THRIFT: >
+        /usr/bin/thrift
+      NFQ_REMOTE_TOOL_PDFTK: >
+        /usr/bin/pdftk
+      NFQ_REMOTE_TOOL_WKHTMLTOPDF: >
+        /usr/bin/xvfb-run
+        /usr/bin/wkhtmltopdf
+      NFQ_REMOTE_TOOL_AWSTOOLS: >
+        /usr/local/bin/aws
+      NFQ_REMOTE_TOOL_SONAR: >
+        /usr/bin/sonar-scanner
+      NFQ_REMOTE_TOOL_GHOSTSCRIPT: >
+        /usr/bin/gs
+      COMPOSER_VERSION: 2
+
+
+  birt:
+    image: nfqlt/birt45
+    ports:
+      - '10.24.97.193:8080:8080'
+
+
+  node:
+    image: nfqlt/node20
+    volumes:
+      - './src:/home/project/src'
+      - /tmp
+
+
+  thrift:
+    image: nfqlt/thrift0110
+    volumes_from:
+      - 'service:node:rw'
+
+
+  awstools:
+    image: nfqlt/aws-tools
+    volumes_from:
+      - 'service:thrift:rw'
+
+
+  pdftk:
+    image: nfqlt/pdftk
+    volumes_from:
+      - 'service:node:rw'
+
+
+  wkhtmltopdf:
+    image: nfqlt/wkhtmltopdf125-broken
+    volumes_from:
+      - 'service:node:rw'
+
+
+  mail:
+    image: nfqlt/mailhog
+    ports:
+      - '10.24.97.193:1080:80'
+      - '10.24.97.193:25:25'
+
+
+  linker:
+    image: nfqlt/linker18ce
+    volumes:
+      - '/run/docker.sock:/run/docker.sock'
+
+
+  ghostscript:
+    image: nfqlt/ghostscript
+    volumes_from:
+      - 'service:node:rw'
+
+
+volumes: {  }
+networks:
+  default:
+    ipam:
+      config:
+        -
+          subnet: 10.24.97.193/27

@@ -1,0 +1,91 @@
+version: '2.4'
+services:
+  web:
+    image: nfqlt/apache24
+    ports:
+      - '10.24.96.1:80:80'
+    links:
+      - fastcgi
+    volumes:
+      - './src:/home/project/src'
+    environment:
+      APACHE_DOCUMENTROOT: /home/project/src/public
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_FCGI_IDLE_TIMEOUT: 300
+
+
+  fastcgi:
+    image: nfqlt/php81-fpm
+    volumes:
+      - './src:/home/project/src'
+    environment:
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_ENABLE_PHP_MODULES: 'pdo pdo_sqlite curl json intl mbstring gd xml zip ctype tokenizer dom simplexml xmlwriter fileinfo posix xmlreader'
+
+
+  dev:
+    image: nfqlt/php81-dev
+    ports:
+      - '10.24.96.1:22:22'
+    volumes_from:
+      - 'service:thrift:rw'
+    volumes:
+      - './src:/home/project/src'
+      - '/home/project/.ssh:/home/project/.ssh'
+      - '/etc/ssh:/etc/ssh'
+      - '/etc/gitconfig:/etc/gitconfig'
+      - '/etc/environment:/etc/environment-vm:ro'
+      - '../../tools/env-projects:/etc/environment-projects'
+      - '/vagrant/bash_custom:/home/project/.bash_custom'
+    environment:
+      NFQ_ENABLE_PHP_MODULES: 'pdo pdo_sqlite curl json intl mbstring gd xml zip ctype tokenizer dom simplexml xmlwriter fileinfo posix xmlreader'
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_PROJECT_GIT_REPO: 'git@gitlab.com:nfq-technologies/delta/atlantic-express/client-zone.git'
+      NFQ_PROJECT_GIT_BRANCH: develop
+      NFQ_INIT_SCRIPT: tools/docker/develop_init.sh
+      COMPOSER_VERSION: 2
+      NFQ_REMOTE_TOOL_NODE: >
+        /usr/bin/yarn
+        /usr/bin/npm
+        /usr/bin/npx
+      NFQ_REMOTE_TOOL_THRIFT: >
+        /usr/bin/thrift
+
+
+  mail:
+    image: nfqlt/mailhog
+    ports:
+      - '10.24.96.1:1080:80'
+      - '10.24.96.1:25:25'
+
+
+  thrift:
+    image: nfqlt/thrift0110
+    volumes:
+      - './src:/home/project/src'
+      - /tmp
+
+
+  linker:
+    image: nfqlt/linker18ce
+    volumes:
+      - '/run/docker.sock:/run/docker.sock'
+
+
+  node:
+    image: nfqlt/node18
+    ports:
+      - '10.24.96.1:6006:6006'
+      - '10.24.96.1:3003:3003'
+    volumes:
+      - './src:/home/project/src'
+      - /tmp
+
+
+volumes: {  }
+networks:
+  default:
+    ipam:
+      config:
+        -
+          subnet: 10.24.96.1/28

@@ -1,0 +1,94 @@
+version: '2.4'
+services:
+  sonar:
+    image: nfqlt/sonar-scanner-cli4
+    volumes_from:
+      - 'service:thrift:rw'
+
+
+  web:
+    image: nfqlt/apache24
+    ports:
+      - '10.24.97.81:80:80'
+    links:
+      - fastcgi
+    volumes:
+      - './src:/home/project/src'
+    environment:
+      APACHE_DOCUMENTROOT: /home/project/src/www/web
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_FCGI_IDLE_TIMEOUT: 300
+
+
+  fastcgi:
+    image: nfqlt/php74-fpm
+    volumes:
+      - './src:/home/project/src'
+    environment:
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_ENABLE_PHP_MODULES: 'pdo pdo_sqlite curl json intl mbstring gd xml zip ctype tokenizer dom simplexml xmlwriter fileinfo posix sqlite3'
+
+
+  dev:
+    image: nfqlt/php74-dev
+    ports:
+      - '10.24.97.81:22:22'
+    links:
+      - sonar
+    volumes_from:
+      - 'service:thrift:rw'
+    volumes:
+      - './src:/home/project/src'
+      - '/home/project/.ssh:/home/project/.ssh'
+      - '/etc/ssh:/etc/ssh'
+      - '/etc/gitconfig:/etc/gitconfig'
+      - '/etc/environment:/etc/environment-vm:ro'
+      - '../../tools/env-projects:/etc/environment-projects'
+      - '/vagrant/bash_custom:/home/project/.bash_custom'
+    environment:
+      NFQ_ENABLE_PHP_MODULES: 'pdo pdo_sqlite curl json intl mbstring gd xml zip ctype tokenizer dom simplexml xmlwriter fileinfo posix sqlite3'
+      NFQ_PROJECT_ROOT: /home/project/src
+      NFQ_PROJECT_GIT_REPO: 'git@gitlab.com:nfq-technologies/delta/atlantic-express/user-zone.git'
+      NFQ_PROJECT_GIT_BRANCH: develop
+      NFQ_INIT_SCRIPT: tools/docker/develop_init.sh
+      NFQ_REMOTE_TOOL_THRIFT: >
+        /usr/bin/thrift
+      NFQ_REMOTE_TOOL_AWSTOOLS: >
+        /usr/local/bin/aws
+      NFQ_REMOTE_TOOL_SONAR: >
+        /usr/bin/sonar-scanner
+
+
+  thrift:
+    image: nfqlt/thrift0110
+    volumes:
+      - './src:/home/project/src'
+      - /tmp
+
+
+  mail:
+    image: nfqlt/mailhog
+    ports:
+      - '10.24.97.81:1080:80'
+      - '10.24.97.81:25:25'
+
+
+  awstools:
+    image: nfqlt/aws-tools
+    volumes_from:
+      - 'service:thrift:rw'
+
+
+  linker:
+    image: nfqlt/linker18ce
+    volumes:
+      - '/run/docker.sock:/run/docker.sock'
+
+
+volumes: {  }
+networks:
+  default:
+    ipam:
+      config:
+        -
+          subnet: 10.24.97.81/28
